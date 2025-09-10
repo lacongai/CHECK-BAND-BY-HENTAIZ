@@ -138,7 +138,7 @@ def api_decode_proxy():
 
     try:
         # Gọi sang API decode thật ở Vercel
-        url = f"https://check-token-rho.vercel.app/api/check_token_file?key=hentaiz&token={token}"
+        url = f"https://check-token-nbau.vercel.app/api/check_token_file?key=hentaiz&token_file={token}"
         response = requests.get(url, timeout=10)
 
         # Nếu API kia trả về lỗi
