@@ -1,43 +1,42 @@
-from flask import Flask, request, Response
+from flask import Flask, request, jsonify, Response
 import requests
 import json
 import os
+import re
+import datetime
+import jwt  # pyjwt
 
 app = Flask(__name__)
 
-SECRET_KEY = os.environ.get("SECRET_KEY")  
-@app.route('/', methods=['GET'])
-def index():
-    return jsonify({"message": "Decode token run" })
-    
-    
-# ✅ Hàm lấy tên và vùng
+API_KEY = "hentaiz"  # 🔑 key cố định
+
+# ==============================
+# Trang chủ
+# ==============================
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "status": "ok",
+        "message": "✅ API Check Token Account đang chạy!"
+    })
+
+# ==============================
+# Hàm lấy tên + khu vực
+# ==============================
 def get_player_info(player_id):
-    cookies = {
-        'region': 'MA',
-        'language': 'ar',
-        'session_key': 'efwfzwesi9ui8drux4pmqix4cosane0y',
-    }
-
+    cookies = {"region": "MA", "language": "ar", "session_key": "efwfzwesi9ui8drux4pmqix4cosane0y"}
     headers = {
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive',
-        'Origin': 'https://shop2game.com',
-        'Referer': 'https://shop2game.com/app/100067/idlogin',
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Redmi Note 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Mobile Safari/537.36',
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'x-datadome-clientid': '6h5F5cx_GpbuNtAkftMpDjsbLcL3op_5W5Z-npxeT_qcEe_7pvil2EuJ6l~JlYDxEALeyvKTz3~LyC1opQgdP~7~UDJ0jYcP5p20IQlT3aBEIKDYLH~cqdfXnnR6FAL0',
+        "Accept-Language": "en-US,en;q=0.9",
+        "Connection": "keep-alive",
+        "Origin": "https://shop2game.com",
+        "Referer": "https://shop2game.com/app/100067/idlogin",
+        "User-Agent": "Mozilla/5.0",
+        "accept": "application/json",
+        "content-type": "application/json",
     }
-
-    json_data = {
-        'app_id': 100067,
-        'login_id': f'{player_id}',
-        'app_server_id': 0,
-    }
-
+    json_data = {"app_id": 100067, "login_id": f"{player_id}", "app_server_id": 0}
     try:
-        res = requests.post('https://shop2game.com/api/auth/player_id_login',
+        res = requests.post("https://shop2game.com/api/auth/player_id_login",
                             cookies=cookies, headers=headers, json=json_data)
         if res.status_code == 200:
             data = res.json()
@@ -47,40 +46,22 @@ def get_player_info(player_id):
             }
     except:
         pass
+    return {"nickname": "❌ Không thể lấy tên", "region": "❌ Không thấy khu vực"}
 
-    return {
-        "nickname": "❌ Không thể lấy tên",
-        "region": "❌ Không thấy khu vực"
-    }
-
-
-# ✅ Hàm kiểm tra ban
+# ==============================
+# Check ban
+# ==============================
 def check_banned(player_id):
     url = f"https://ff.garena.com/api/antihack/check_banned?lang=en&uid={player_id}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K)",
-        "Accept": "application/json",
-        "referer": "https://ff.garena.com/en/support/",
-        "x-requested-with": "B6FksShzIgjfrYImLpTsadjS86sddhFH"
-    }
-
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
     try:
         response = requests.get(url, headers=headers)
         player_info = get_player_info(player_id)
-
         if response.status_code == 200:
             data = response.json().get("data", {})
             is_banned = data.get("is_banned", 0)
             period = data.get("period", 0)
-
-            if is_banned:
-                if period > 0:
-                    duration = f"{period} ngày"
-                else:
-                    duration = "Khoá vĩnh viễn"
-            else:
-                duration = "Không bị khóa"
-
+            duration = f"{period} ngày" if is_banned and period > 0 else ("Khoá vĩnh viễn" if is_banned else "Không bị khóa")
             result = {
                 "✅ status": "Kiểm tra thành công",
                 "🆔 UID": player_id,
@@ -91,173 +72,133 @@ def check_banned(player_id):
                 "📊 Banned?": bool(is_banned),
                 "💎 Powered by": "t.me/@henntaiiz",
             }
-
-            return Response(json.dumps(result, indent=4, ensure_ascii=False),
-                            mimetype="application/json")
-
-        else:
-            return Response(json.dumps({
-                "❌ lỗi": "Không thể lấy trạng thái cấm từ máy chủ Garena",
-                "status_code": 500
-            }, indent=4, ensure_ascii=False), mimetype="application/json")
+            return jsonify(result)
+        return jsonify({"❌ lỗi": "Không thể lấy trạng thái cấm từ máy chủ Garena"}), 500
     except Exception as e:
-        return Response(json.dumps({
-            "💥 exception": str(e),
-            "status_code": 500
-        }, indent=4, ensure_ascii=False), mimetype="application/json")
-
+        return jsonify({"💥 exception": str(e)}), 500
 
 @app.route("/api/check", methods=["GET"])
 def api_check():
     key = request.args.get("key")
-    if key != "hentaiz":  # 🔑 check API key
+    if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-
     player_id = request.args.get("uid")
     if not player_id:
-        return jsonify({
-            "error": "⚠️ Cần phải có ID người chơi (uid)!",
-            "status_code": 400
-        }), 400
+        return jsonify({"error": "⚠️ Cần phải có ID người chơi (uid)!"}), 400
+    return check_banned(player_id)
 
-    return check_banned(player_id)  # sửa trong check_banned cũng phải trả jsonify
+# ==============================
+# Decode token trực tiếp
+# ==============================
+@app.route("/api/check_token_file", methods=["GET"])
+def check_token_file():
+    key = request.args.get("key")
+    if key != API_KEY:
+        return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
+    token_file = request.args.get("token_file")
+    if not token_file:
+        return jsonify({"error": "❌ token_file parameter is required"}), 400
 
+    tokens = token_file.split(",")
+    results = []
+    for idx, token in enumerate(tokens, start=1):
+        token = token.strip()
+        try:
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            exp_ts = decoded.get("exp")
+            exp_time, expired, message = None, None, "Không có thời gian hết hạn"
+            if exp_ts:
+                exp_time = datetime.datetime.fromtimestamp(exp_ts)
+                expired = exp_time < datetime.datetime.utcnow()
+                message = f"Token expired at {exp_time}" if expired else f"Token valid until {exp_time}"
+            results.append({
+                "index": idx, "status": "success", "message": message,
+                "decode_message": "✅ Token decode thành công",
+                "expired": expired,
+                "exp_time": exp_time.strftime("%Y-%m-%d %H:%M:%S") if exp_time else None,
+                "payload": decoded, "token": token
+            })
+        except Exception as e:
+            results.append({"index": idx, "status": "error", "message": f"❌ Decode lỗi: {str(e)}",
+                            "decode_message": "❌ Token decode thất bại", "expired": None, "exp_time": None,
+                            "payload": None, "token": token})
+    return jsonify({"results": results})
 
-import requests
-from flask import request, jsonify
-
+# ==============================
+# Decode token qua proxy
+# ==============================
 @app.route("/api/decode", methods=["GET"])
 def api_decode_proxy():
-    token = request.args.get("token")
-
-    if key != "hentaiz":  # 🔑 check API key
+    key = request.args.get("key")
+    if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-
+    token = request.args.get("token")
     if not token:
         return jsonify({"error": "❌ token parameter is required"}), 400
-
     try:
-        # Gọi sang API decode thật ở Vercel
-        url = f"https://check-token-nbau.vercel.app/api/check_token_file?key=hentaiz&token_file={token}"
+        url = f"https://check-token-nbau.vercel.app/api/check_token_file?key={API_KEY}&token_file={token}"
         response = requests.get(url, timeout=10)
-
-        # Nếu API kia trả về lỗi
-        if response.status_code != 200:
-            return jsonify({
-                "results": [{
-                    "index": 1,
-                    "status": "error",
-                    "message": f"❌ Upstream error {response.status_code}",
-                    "decode_message": "❌ Proxy thất bại",
-                    "expired": None,
-                    "exp_time": None,
-                    "payload": {},
-                    "token": token
-                }]
-            }), response.status_code
-
-        # Trả nguyên JSON kết quả
-        return jsonify(response.json())
-
+        return jsonify(response.json()), response.status_code
     except Exception as e:
-        return jsonify({
-            "results": [{
-                "index": 1,
-                "status": "error",
-                "message": f"❌ Exception: {str(e)}",
-                "decode_message": "❌ Proxy thất bại",
-                "expired": None,
-                "exp_time": None,
-                "payload": {},
-                "token": token
-            }]
-        }), 500
-        
+        return jsonify({"results": [{"index": 1, "status": "error", "message": f"❌ Exception: {str(e)}"}]}), 500
 
+# ==============================
+# Guest Accounts
+# ==============================
 @app.route("/api/guest_accounts", methods=["GET"])
 def api_guest_accounts():
     key = request.args.get("key")
-    if key != "hentaiz":  # 🔑 bảo mật API key
+    if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-
     file_param = request.args.get("file")
-    dir_param = request.args.get("dir", ".")  
-
+    dir_param = request.args.get("dir", ".")
     output_data = []
-
-    # ==============================
-    # 1️⃣ Nếu truyền file cụ thể
-    # ==============================
     if file_param:
         if not os.path.exists(file_param):
             return jsonify({"error": f"❌ File not found: {file_param}"}), 404
         try:
             with open(file_param, "r", encoding="utf-8") as f:
                 content = json.load(f)
-
             guest_info = content.get("guest_account_info", {})
             uid = guest_info.get("com.garena.msdk.guest_uid", "").strip()
             password = guest_info.get("com.garena.msdk.guest_password", "").strip()
-
             if uid and password:
                 output_data.append({"file": file_param, "uid": uid, "password": password})
         except Exception as e:
             return jsonify({"error": f"❌ Error reading file {file_param}: {e}"}), 500
-
-    # ==============================
-    # 2️⃣ Nếu truyền dir → quét toàn bộ .dat
-    # ==============================
     else:
         if not os.path.exists(dir_param):
             return jsonify({"error": f"❌ Directory not found: {dir_param}"}), 404
-
         dat_files = [f for f in os.listdir(dir_param) if f.endswith(".dat")]
         if not dat_files:
             return jsonify({"error": "❌ No .dat files found in directory"}), 404
-
         for dat_file in dat_files:
-            dat_path = os.path.join(dir_param, dat_file)
             try:
-                with open(dat_path, "r", encoding="utf-8") as f:
+                with open(os.path.join(dir_param, dat_file), "r", encoding="utf-8") as f:
                     content = json.load(f)
-
                 guest_info = content.get("guest_account_info", {})
                 uid = guest_info.get("com.garena.msdk.guest_uid", "").strip()
                 password = guest_info.get("com.garena.msdk.guest_password", "").strip()
-
                 if uid and password:
                     output_data.append({"file": dat_file, "uid": uid, "password": password})
             except Exception as e:
                 print(f"⚠️ Error reading {dat_file}: {e}")
-
-    # ==============================
-    # 3️⃣ Xuất kết quả ra file
-    # ==============================
     output_file = os.path.join(dir_param, "ind_ind.json")
-    try:
-        with open(output_file, "w", encoding="utf-8") as json_file:
-            json.dump(output_data, json_file, indent=4, ensure_ascii=False)
-    except Exception as e:
-        return jsonify({"error": f"❌ Error writing JSON file: {e}"}), 500
+    with open(output_file, "w", encoding="utf-8") as json_file:
+        json.dump(output_data, json_file, indent=4, ensure_ascii=False)
+    return jsonify({"status": "success", "count": len(output_data), "output_file": output_file, "accounts": output_data})
 
-    return jsonify({
-        "status": "success",
-        "count": len(output_data),
-        "output_file": output_file,
-        "accounts": output_data
-    })
-        
-
+# ==============================
+# Generate token từ uid/pass
+# ==============================
 @app.route("/api/token", methods=["GET"])
 def api_token_generate():
     key = request.args.get("key")
-    if key != "hentaiz":  # 🔑 check API key
+    if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-
     uid = request.args.get("uid")
     password = request.args.get("password")
     file_param = request.args.get("file")
-
     API_URL = "http://narayan-gwt-token.vercel.app/token?uid={}&password={}"
     output_data = []
 
@@ -273,14 +214,12 @@ def api_token_generate():
             print(f"⚠️ Error fetching token for {uid}: {e}")
         return {"uid": uid, "token": None}
 
-    # 1️⃣ Nếu truyền trực tiếp uid + password
     if uid and password:
         result = fetch_token(uid, password)
         if result["token"]:
             output_data.append(result)
         return jsonify({"status": "success", "count": len(output_data), "accounts": output_data})
 
-    # 2️⃣ Nếu truyền file chứa uid/password
     if file_param:
         if not os.path.exists(file_param):
             return jsonify({"error": f"❌ File not found: {file_param}"}), 404
@@ -292,24 +231,15 @@ def api_token_generate():
                 result = fetch_token(uid, password)
                 if result["token"]:
                     output_data.append(result)
-
-            # Lưu ra file token_ind.json
             output_file = os.path.join(os.path.dirname(file_param), "token_ind.json")
             with open(output_file, "w", encoding="utf-8") as outfile:
                 json.dump(output_data, outfile, indent=4, ensure_ascii=False)
-
-            return jsonify({
-                "status": "success",
-                "count": len(output_data),
-                "output_file": output_file,
-                "accounts": output_data
-            })
-
+            return jsonify({"status": "success", "count": len(output_data), "output_file": output_file, "accounts": output_data})
         except Exception as e:
             return jsonify({"error": f"❌ Error processing file {file_param}: {e}"}), 500
 
     return jsonify({"error": "⚠️ Please provide either uid/password or file"}), 400
-    
-                                                    
+
+# ==============================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5055)))
