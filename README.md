@@ -5,7 +5,7 @@ API hỗ trợ kiểm tra trạng thái tài khoản game (bị ban hoặc khôn
 
 **Base URL:**
 
-## https://check-band-by-hentaiz.vercel.app
+## https://check-band-by-hentaiz-bc9o.vercel.app/
 
 ---
 
@@ -32,13 +32,13 @@ API hỗ trợ kiểm tra trạng thái tài khoản game (bị ban hoặc khôn
 /api/token?key=hentaiz&uid=123456789&password=abcdef123
 
 - API Kiểm Tra:  
-## 👉 [https://check-band-by-hentaiz.vercel.app/api/check?key=hentaiz&uid=3269229643](https://check-band-by-hentaiz.vercel.app/api/check?key=hentaiz&uid=3269229643)
+## 👉 [https://check-band-by-hentaiz-bc9o.vercel.app/api/check?key=hentaiz&uid=3269229643](https://check-band-by-hentaiz-bc9o.vercel.app/api/check?key=hentaiz&uid=3269229643)
 
-## 👉 [https://check-band-by-hentaiz.vercel.app/api/decode?key=hentaiz&token=eyJhbGciOi...](https://check-band-by-hentaiz.vercel.app/api/decode?key=hentaiz&token=eyJhbGciOi...)
+## 👉 [https://check-band-by-hentaiz-bc9o.vercel.app/api/decode?key=hentaiz&token=eyJhbGciOi...](https://check-band-by-hentaiz-bc9o.vercel.app/api/decode?key=hentaiz&token=eyJhbGciOi...)
 
-## 👉 [https://check-band-by-hentaiz.vercel.app/api/guest_accounts?key=hentaiz&file=fuck.json](https://check-band-by-hentaiz.vercel.app/api/guest_accounts?key=hentaiz&file=fuck.json)
+## 👉 [https://check-band-by-hentaiz-bc9o.vercel.app/api/guest_accounts?key=hentaiz&file=fuck.json](https://check-band-by-hentaiz-bc9o.vercel.app/api/guest_accounts?key=hentaiz&file=fuck.json)
 
-## 👉 [https://check-band-by-hentaiz.vercel.app/api/guest_accounts?key=hentaiz&dir=/path/to/dir](https://check-band-by-hentaiz.vercel.app/api/guest_accounts?key=hentaiz&dir=/path/to/dir)
+## 👉 [https://check-band-by-hentaiz-bc9o.vercel.app/api/guest_accounts?key=hentaiz&dir=/path/to/dir](https://check-band-by-hentaiz-bc9o.vercel.app/api/guest_accounts?key=hentaiz&dir=/path/to/dir)
 
 # + Mặc Định File Trả Về : ind_ind.json
 
@@ -246,7 +246,7 @@ or
 import requests
 import json
 
-API_BASE = "https://check-band-by-hentaiz.vercel.app"
+API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app"
 API_KEY = "hentaiz"
 
 # ================================
@@ -335,7 +335,7 @@ except Exception as e:
 ## 2. JavaScript (Fetch API – dùng trên web)
 
 ```JavaScript
-const API_BASE = "https://check-band-by-hentaiz.vercel.app";
+const API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app";
 const API_KEY = "hentaiz";
 
 // =============================
@@ -431,7 +431,7 @@ fetch(`${API_BASE}/api/token?key=${API_KEY}&file=fuck.json`)
 ```js
 const axios = require("axios");
 
-const API_BASE = "https://check-band-by-hentaiz.vercel.app";
+const API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app";
 const API_KEY = "hentaiz";
 
 (async () => {
@@ -503,7 +503,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
 
 TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-API_BASE = "https://check-band-by-hentaiz.vercel.app"
+API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app"
 API_KEY = "hentaiz"
 
 # ================================
@@ -637,7 +637,7 @@ const axios = require("axios");
 
 const bot = new Telegraf("YOUR_TELEGRAM_BOT_TOKEN");
 
-const API_BASE = "https://check-band-by-hentaiz.vercel.app";
+const API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app";
 const API_KEY = "hentaiz";
 
 // =============================
@@ -788,7 +788,7 @@ const client = new Client({
 });
 
 const TOKEN = "YOUR_DISCORD_BOT_TOKEN";
-const API_BASE = "https://check-band-by-hentaiz.vercel.app";
+const API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app";
 const API_KEY = "hentaiz";
 
 client.on("ready", () => {
@@ -927,7 +927,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-API_BASE = "https://check-band-by-hentaiz.vercel.app"
+API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app"
 API_KEY = "hentaiz"
 
 @client.event
@@ -1177,7 +1177,7 @@ client.run(TOKEN)
   </div>
 
   <script>
-    const API_BASE = "https://check-band-by-hentaiz.vercel.app";
+    const API_BASE = "https://check-band-by-hentaiz-bc9o.vercel.app";
     const API_KEY = "hentaiz";
 
     async function checkUID() {
