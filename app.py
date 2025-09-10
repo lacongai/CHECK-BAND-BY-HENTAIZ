@@ -240,6 +240,25 @@ def api_token_generate():
 
     return jsonify({"error": "⚠️ Please provide either uid/password or file"}), 400
 
+@app.route("/help", methods=["GET"])
+def api_help():
+    commands = {
+        "/api/check?key=hentaiz&uid=<UID>": "Kiểm tra trạng thái tài khoản Free Fire",
+        "/api/decode?key=hentaiz&token=<TOKEN>": "Decode token qua proxy",
+        "/api/check_token_file?key=hentaiz&token_file=<TOKEN1>,<TOKEN2>": "Decode token trực tiếp (không verify chữ ký)",
+        "/api/guest_accounts?key=hentaiz&file=<FILE>": "Đọc file guest account",
+        "/api/guest_accounts?key=hentaiz&dir=<DIR>": "Quét toàn bộ file .dat trong thư mục",
+        "/api/token?key=hentaiz&uid=<UID>&password=<PASS>": "Lấy token từ UID + password",
+        "/api/token?key=hentaiz&file=<FILE>": "Lấy token từ file JSON",
+        "/api/help": "Hiển thị danh sách lệnh"
+    }
+    return jsonify({
+        "status": "ok",
+        "message": "📖 Danh sách API có sẵn",
+        "commands": commands,
+        "base_url": "https://check-band-by-hentaiz-bc9o.vercel.app/"
+    })
+    
 # ==============================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5055)))
