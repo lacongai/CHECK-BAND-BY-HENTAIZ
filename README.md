@@ -1,3 +1,4 @@
+# SOURCE VÀ API Ở DƯỚI CÓ THỂ BỊ LỖI KHÔNG HOẠT ĐỘNG 
 
 # 📌 Check Band API  
 
