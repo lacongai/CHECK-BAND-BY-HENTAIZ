@@ -90,19 +90,47 @@ def api_check():
 # ==============================
 # Decode token trực tiếp
 # ==============================
-@app.route("/api/check_token_file", methods=["GET"])
+@app.route("/api/check_token_file", methods=["POST", "GET"])
 def check_token_file():
-    key = request.args.get("key")
+    key = request.args.get("key") or request.form.get("key")
     if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-    token_file = request.args.get("token_file")
-    if not token_file:
-        return jsonify({"error": "❌ token_file parameter is required"}), 400
 
-    tokens = token_file.split(",")
+    token_file = request.args.get("token_file") or request.form.get("token_file")
+    uploaded_file = request.files.get("file")
+    tokens = []
+
+    # 📂 Nếu upload file
+    if uploaded_file:
+        tmp_path = os.path.join(tempfile.gettempdir(), uploaded_file.filename)
+        uploaded_file.save(tmp_path)
+        if tmp_path.endswith(".zip"):
+            with zipfile.ZipFile(tmp_path, "r") as zip_ref:
+                extract_dir = tempfile.mkdtemp()
+                zip_ref.extractall(extract_dir)
+                for root, _, files in os.walk(extract_dir):
+                    for fn in files:
+                        if fn.endswith((".txt", ".json")):
+                            with open(os.path.join(root, fn), "r", encoding="utf-8", errors="ignore") as f:
+                                for line in f:
+                                    token = line.strip().strip('"')
+                                    if len(token) > 20:
+                                        tokens.append(token)
+        else:
+            with open(tmp_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    token = line.strip().strip('"')
+                    if len(token) > 20:
+                        tokens.append(token)
+
+    elif token_file:
+        tokens.extend([t.strip().strip('"') for t in token_file.split(",") if len(t.strip()) > 20])
+    else:
+        return jsonify({"error": "❌ token_file parameter or file upload required"}), 400
+
+    # 🔎 Decode
     results = []
     for idx, token in enumerate(tokens, start=1):
-        token = token.strip()
         try:
             decoded = jwt.decode(token, options={"verify_signature": False})
             exp_ts = decoded.get("exp")
@@ -122,83 +150,142 @@ def check_token_file():
             results.append({"index": idx, "status": "error", "message": f"❌ Decode lỗi: {str(e)}",
                             "decode_message": "❌ Token decode thất bại", "expired": None, "exp_time": None,
                             "payload": None, "token": token})
+
     return jsonify({"results": results})
 
 # ==============================
 # Decode token qua proxy
 # ==============================
-@app.route("/api/decode", methods=["GET"])
+@app.route("/api/decode", methods=["POST", "GET"])
 def api_decode_proxy():
-    key = request.args.get("key")
+    key = request.args.get("key") or request.form.get("key")
     if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-    token = request.args.get("token")
-    if not token:
-        return jsonify({"error": "❌ token parameter is required"}), 400
-    try:
-        url = f"https://check-token-nbau.vercel.app/api/check_token_file?key={API_KEY}&token_file={token}"
-        response = requests.get(url, timeout=10)
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        return jsonify({"results": [{"index": 1, "status": "error", "message": f"❌ Exception: {str(e)}"}]}), 500
 
+    token = request.args.get("token") or request.form.get("token")
+    uploaded_file = request.files.get("file")
+    tokens = []
+
+    # 📌 Nếu upload file
+    if uploaded_file:
+        tmp_path = os.path.join(tempfile.gettempdir(), uploaded_file.filename)
+        uploaded_file.save(tmp_path)
+        if tmp_path.endswith(".zip"):
+            with zipfile.ZipFile(tmp_path, "r") as zip_ref:
+                extract_dir = tempfile.mkdtemp()
+                zip_ref.extractall(extract_dir)
+                for root, _, files in os.walk(extract_dir):
+                    for fn in files:
+                        if fn.endswith((".txt", ".json")):
+                            with open(os.path.join(root, fn), "r", encoding="utf-8", errors="ignore") as f:
+                                for line in f:
+                                    tk = line.strip().strip('"')
+                                    if len(tk) > 20:
+                                        tokens.append(tk)
+        else:
+            with open(tmp_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    tk = line.strip().strip('"')
+                    if len(tk) > 20:
+                        tokens.append(tk)
+
+    elif token:
+        tokens = [t.strip().strip('"') for t in token.split(",") if len(t.strip()) > 20]
+
+    else:
+        return jsonify({"error": "❌ token parameter or file upload required"}), 400
+
+    # 📌 Proxy sang API decode gốc
+    results = []
+    for idx, tk in enumerate(tokens, start=1):
+        try:
+            url = f"https://check-token-nbau.vercel.app/api/check_token_file?key={API_KEY}&token_file={tk}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                # ghép thêm index để đồng bộ format
+                results.append({"index": idx, "status": "success", "raw": data})
+            else:
+                results.append({"index": idx, "status": "error", "message": f"❌ HTTP {response.status_code}"})
+        except Exception as e:
+            results.append({"index": idx, "status": "error", "message": f"❌ Exception: {str(e)}"})
+
+    return jsonify({"results": results})
+    
 # ==============================
 # Guest Accounts
 # ==============================
-@app.route("/api/guest_accounts", methods=["GET"])
+@app.route("/api/guest_accounts", methods=["POST", "GET"])
 def api_guest_accounts():
-    key = request.args.get("key")
+    key = request.args.get("key") or request.form.get("key")
     if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-    file_param = request.args.get("file")
+
+    file_param = request.args.get("file") or request.form.get("file")
     dir_param = request.args.get("dir", ".")
+    uploaded_file = request.files.get("file")
     output_data = []
-    if file_param:
-        if not os.path.exists(file_param):
-            return jsonify({"error": f"❌ File not found: {file_param}"}), 404
-        try:
-            with open(file_param, "r", encoding="utf-8") as f:
-                content = json.load(f)
-            guest_info = content.get("guest_account_info", {})
-            uid = guest_info.get("com.garena.msdk.guest_uid", "").strip()
-            password = guest_info.get("com.garena.msdk.guest_password", "").strip()
-            if uid and password:
-                output_data.append({"file": file_param, "uid": uid, "password": password})
-        except Exception as e:
-            return jsonify({"error": f"❌ Error reading file {file_param}: {e}"}), 500
+    paths_to_scan = []
+
+    # 📂 Nếu upload file
+    if uploaded_file:
+        tmp_path = os.path.join(tempfile.gettempdir(), uploaded_file.filename)
+        uploaded_file.save(tmp_path)
+        paths_to_scan.append(tmp_path)
+        if tmp_path.endswith(".zip"):
+            with zipfile.ZipFile(tmp_path, "r") as zip_ref:
+                extract_dir = tempfile.mkdtemp()
+                zip_ref.extractall(extract_dir)
+                for root, _, files in os.walk(extract_dir):
+                    for fn in files:
+                        if fn.endswith((".json", ".dat", ".txt")):
+                            paths_to_scan.append(os.path.join(root, fn))
+    elif file_param and os.path.exists(file_param):
+        paths_to_scan.append(file_param)
     else:
+        # 📂 Nếu quét thư mục
         if not os.path.exists(dir_param):
             return jsonify({"error": f"❌ Directory not found: {dir_param}"}), 404
-        dat_files = [f for f in os.listdir(dir_param) if f.endswith(".dat")]
-        if not dat_files:
-            return jsonify({"error": "❌ No .dat files found in directory"}), 404
-        for dat_file in dat_files:
-            try:
-                with open(os.path.join(dir_param, dat_file), "r", encoding="utf-8") as f:
-                    content = json.load(f)
-                guest_info = content.get("guest_account_info", {})
-                uid = guest_info.get("com.garena.msdk.guest_uid", "").strip()
-                password = guest_info.get("com.garena.msdk.guest_password", "").strip()
-                if uid and password:
-                    output_data.append({"file": dat_file, "uid": uid, "password": password})
-            except Exception as e:
-                print(f"⚠️ Error reading {dat_file}: {e}")
-    output_file = os.path.join(dir_param, "ind_ind.json")
-    with open(output_file, "w", encoding="utf-8") as json_file:
-        json.dump(output_data, json_file, indent=4, ensure_ascii=False)
-    return jsonify({"status": "success", "count": len(output_data), "output_file": output_file, "accounts": output_data})
+        for fn in os.listdir(dir_param):
+            if fn.endswith((".dat", ".json", ".txt")):
+                paths_to_scan.append(os.path.join(dir_param, fn))
 
+    # 🔎 Quét file
+    for path in paths_to_scan:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            try:
+                js = json.loads(content)
+                guest_info = js.get("guest_account_info", {})
+                uid = guest_info.get("com.garena.msdk.guest_uid", "").strip('"')
+                password = guest_info.get("com.garena.msdk.guest_password", "").strip('"')
+                if uid and password:
+                    output_data.append({"file": path, "uid": uid, "password": password})
+            except:
+                # Regex fallback (bỏ " nếu có)
+                matches = re.findall(r'uid["\']?\s*[:=]\s*["\']?(\d+)["\']?.*?password["\']?\s*[:=]\s*["\']?([A-Za-z0-9]+)', content, re.I)
+                for u, p in matches:
+                    output_data.append({"file": path, "uid": u, "password": p})
+        except Exception as e:
+            print(f"⚠️ Error reading {path}: {e}")
+
+    return jsonify({"status": "success", "count": len(output_data), "accounts": output_data})
+    
 # ==============================
 # Generate token từ uid/pass
 # ==============================
-@app.route("/api/token", methods=["GET"])
+@app.route("/api/token", methods=["POST", "GET"])
 def api_token_generate():
-    key = request.args.get("key")
+    key = request.args.get("key") or request.form.get("key")
     if key != API_KEY:
         return jsonify({"error": "❌ Unauthorized. Invalid key!"}), 403
-    uid = request.args.get("uid")
-    password = request.args.get("password")
-    file_param = request.args.get("file")
+
+    uid = request.args.get("uid") or request.form.get("uid")
+    password = request.args.get("password") or request.form.get("password")
+    file_param = request.args.get("file") or request.form.get("file")
+    uploaded_file = request.files.get("file")
+
     API_URL = "http://narayan-gwt-token.vercel.app/token?uid={}&password={}"
     output_data = []
 
@@ -214,31 +301,48 @@ def api_token_generate():
             print(f"⚠️ Error fetching token for {uid}: {e}")
         return {"uid": uid, "token": None}
 
+    # 📌 Trường hợp nhập trực tiếp uid/pass
     if uid and password:
-        result = fetch_token(uid, password)
+        result = fetch_token(uid.strip('"'), password.strip('"'))
         if result["token"]:
             output_data.append(result)
         return jsonify({"status": "success", "count": len(output_data), "accounts": output_data})
 
-    if file_param:
-        if not os.path.exists(file_param):
-            return jsonify({"error": f"❌ File not found: {file_param}"}), 404
+    # 📌 Trường hợp upload file
+    paths_to_scan = []
+    if uploaded_file:
+        tmp_path = os.path.join(tempfile.gettempdir(), uploaded_file.filename)
+        uploaded_file.save(tmp_path)
+        paths_to_scan.append(tmp_path)
+        # Nếu file là ZIP → giải nén toàn bộ
+        if tmp_path.endswith(".zip"):
+            with zipfile.ZipFile(tmp_path, "r") as zip_ref:
+                extract_dir = tempfile.mkdtemp()
+                zip_ref.extractall(extract_dir)
+                for root, _, files in os.walk(extract_dir):
+                    for fn in files:
+                        if fn.endswith((".json", ".dat", ".txt")):
+                            paths_to_scan.append(os.path.join(root, fn))
+    elif file_param and os.path.exists(file_param):
+        paths_to_scan.append(file_param)
+
+    # 📌 Quét file tìm UID/PASS
+    for path in paths_to_scan:
         try:
-            with open(file_param, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-            pairs = re.findall(r'"uid"\s*:\s*"(\d+)"\s*,\s*"password"\s*:\s*"([A-Fa-f0-9]+)"', content)
-            for uid, password in pairs:
-                result = fetch_token(uid, password)
+            # Regex tìm UID + PASS (có hoặc không có dấu ")
+            pairs = re.findall(r'uid["\']?\s*[:=]\s*["\']?(\d+)["\']?.*?password["\']?\s*[:=]\s*["\']?([A-Za-z0-9]+)["\']?', content, re.I)
+            for u, p in pairs:
+                result = fetch_token(u, p)
                 if result["token"]:
                     output_data.append(result)
-            output_file = os.path.join(os.path.dirname(file_param), "token_ind.json")
-            with open(output_file, "w", encoding="utf-8") as outfile:
-                json.dump(output_data, outfile, indent=4, ensure_ascii=False)
-            return jsonify({"status": "success", "count": len(output_data), "output_file": output_file, "accounts": output_data})
         except Exception as e:
-            return jsonify({"error": f"❌ Error processing file {file_param}: {e}"}), 500
+            print(f"⚠️ Error reading {path}: {e}")
 
-    return jsonify({"error": "⚠️ Please provide either uid/password or file"}), 400
+    if output_data:
+        return jsonify({"status": "success", "count": len(output_data), "accounts": output_data})
+    return jsonify({"error": "⚠️ No valid uid/password found"}), 404
 
 @app.route("/help", methods=["GET"])
 def api_help():
