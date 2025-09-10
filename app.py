@@ -14,7 +14,7 @@ app = Flask(__name__)
 # CONFIG
 # ==============================
 API_KEY = "hentaiz"   # 🔑 Key cố định
-BASE_URL = "https://check-band-by-hentaiz.vercel.app"
+BASE_URL = "https://check-band-by-hentaiz-bc9o.vercel.app"
 
 # ==============================
 # HOME
