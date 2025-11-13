@@ -38,7 +38,7 @@ def get_player_info(player_id):
     }
     payload = {"app_id": 100067, "login_id": str(player_id), "app_server_id": 0}
     try:
-        res = requests.post("https://shop2game.com/api/auth/player_id_login", headers=headers, json=payload, timeout=10)
+        res = requests.post("https://topup.pk/api/auth/player_id_login", headers=headers, json=payload, timeout=10)
         if res.status_code == 200:
             data = res.json()
             return {
